@@ -30,6 +30,46 @@ func fatal(msg string) {
   os.Exit(1)
 }
 
+func getContentType(path string) string {
+  // for now i'm just going to do image/jpeg for .jpg or .jpeg, 
+  // text/html for .html or .htm, text/plain for .txt and application/x-shockwave-flash for .swf
+  // everything else will be application/octet-stream
+
+  base := "Content-Type: "
+
+  // filename is the thing after the last slash
+  filename := path[strings.LastIndex(path,"/"):len(path)]
+
+  fmt.Printf("using filename %s to determine content type\n", filename)
+
+  // is there a dot ? 
+  ext_idx := strings.Index(filename, ".")
+
+  if (ext_idx == -1) {
+    // no extension
+    return base + "application/octet-stream"
+  }
+
+  // + 1 to skip over dot 
+  ext := filename[ext_idx + 1 :len(filename)]
+
+  fmt.Printf("got ext %s\n", ext)
+
+  // yes - see if it's something we know about 
+  switch {
+    case ext == "jpg", ext == "jpeg":
+      return base + "image/jpeg"
+    case ext == "html", ext == "htm":
+      return base + "text/html"
+    case ext == "txt":
+      return base + "text/plain"
+    case ext == "swf":
+      return base + "application/x-shockwave-flash"
+  }
+
+  return base + "application/octet-stream"
+}
+
 // compiler says : opening braces MUST be on the same line !!!! >:o
 func main() {
   
@@ -100,8 +140,6 @@ func main() {
 
     fmt.Printf("req_path is %s\n", req_path)
 
-    content := "<html><body>"
-
     if req_path == "/" {
       req_full_path = rootdir + "/"
       base_url = root_url
@@ -133,9 +171,15 @@ func main() {
       fatal("the thing you asked for isn't a directory or a file?!??!")
     }
 
+    var headers string = ""
+    var content string = ""
+
     // is this a directory ? 
     // this should probably be refactored into a function...
     if (info.IsDirectory()) {
+      headers += "Content-Type: text/html; charset=UTF-8" + terminator
+
+      content += "<html><body>"
       content += "<a href = " + base_url + "..>" + "..</a><p>"
 
       directory, err := os.Open(req_full_path, 0, 0)
@@ -170,17 +214,24 @@ func main() {
       var buf = make([]byte, info.Size)
       n, err = target.Read(buf)
       content += string(buf)
+
+      // set content type based on file extensions
+      content_type := getContentType(req_full_path)
+
+      fmt.Printf("setting content type response header to %s\n", content_type)
+
+      headers += content_type + terminator
     }
 
     // END of milestone 3 code 
-
-    headers := "Content-Type: text/html; charset=UTF-8" + terminator
 
     // for some reason i could NOT get string(len(content)) to work !
     // it kept giving me an empty string, even doing like string(12) SO
     // i used sprintf here 
     headers += fmt.Sprintf("Content-Length: %d", len(content)) + terminator
     headers += terminator
+
+    fmt.Printf("using response headers : \n" + headers)
 
     response := ok + headers + content + terminator + terminator
 
@@ -194,26 +245,4 @@ func main() {
 
     conn.Close()
   }
-
-//  func Chdir(dir string) Error
-
-/*
-func (*FileInfo) IsRegular
-
-func (f *FileInfo) IsRegular() bool
-
-IsRegular reports whether the FileInfo describes a regular file.
-
-func (*FileInfo) IsDirectory
-
-func (f *FileInfo) IsDirectory() bool
-
-IsDirectory reports whether the FileInfo describes a directory.
-
-func Lstat(name string) (fi *FileInfo, err Error)
-
-Lstat returns the FileInfo structure describing the named file and an error, if any. If the file is a symbolic link, the returned FileInfo describes the symbolic link. Lstat makes no attempt to follow the link.
-
-*/
-
 }
