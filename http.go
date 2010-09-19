@@ -100,9 +100,6 @@ func main() {
 
     fmt.Printf("req_path is %s\n", req_path)
 
-    // TODO: check if the request is a directory or is a regular file
-    //   and handle accordingly 
-
     content := "<html><body>"
 
     if req_path == "/" {
@@ -120,8 +117,6 @@ func main() {
       base_url += "/"
     }
 
-    content += "<a href = " + base_url + "..>" + "..</a><p>"
-
     fmt.Printf("base_url is %s\n", base_url)
 
     fmt.Printf("req_full_path is %s\n", req_full_path)
@@ -129,33 +124,53 @@ func main() {
     info, err := os.Lstat(req_full_path)
 
     if (err != nil) {
-      fatal("couldn't stat directory " + req_full_path + ", error = " + err.String())
+      // in the real world this would probably be a 404
+      fatal("couldn't stat any file or directory like " + req_full_path + ", error = " + err.String())
     }
 
-    if (info.IsDirectory() == false) {
-      fatal("the directory isn't a directory ?!??!")
+    if (info.IsDirectory() == false && info.IsRegular() == false) {
+      // and this would likely be a 404 also
+      fatal("the thing you asked for isn't a directory or a file?!??!")
     }
 
-    directory, err := os.Open(req_full_path, 0, 0)
+    // is this a directory ? 
+    // this should probably be refactored into a function...
+    if (info.IsDirectory()) {
+      content += "<a href = " + base_url + "..>" + "..</a><p>"
 
-    if (err != nil) {
-      fatal("couldn't open directory listing for " + req_full_path + " , error = " + err.String())
+      directory, err := os.Open(req_full_path, 0, 0)
+
+      if (err != nil) {
+        fatal("couldn't open directory listing for " + req_full_path + " , error = " + err.String())
+      }
+
+      // dir_listing is an array of FileInfo structures in 'directory order'
+      // the negative count means read them all at once
+      dir_listing, err := directory.Readdir(-1)
+
+      if (err != nil) {
+        fatal("couldn't get directory listing for " + directory.Name() + " , error = " + err.String())
+      }
+
+      for i := 0; i < len(dir_listing); i++ {
+        dir_entry := dir_listing[i].Name
+        content += "<a href = " + base_url + dir_entry + ">" + dir_entry + "</a><p>"
+      }
+
+      content += "</body></html>"
+    } else { // if not a directory, must be a plain old regular file due to above check
+
+      // try to open da file
+      target, err := os.Open(req_full_path, 0, 0)
+
+      if (err != nil) {
+        fatal("could not open file " + req_full_path + " error = "+ err.String())
+      }
+
+      var buf = make([]byte, info.Size)
+      n, err = target.Read(buf)
+      content += string(buf)
     }
-
-    // dir_listing is an array of FileInfo structures in 'directory order'
-    // the negative count means read them all at once
-    dir_listing, err := directory.Readdir(-1)
-
-    if (err != nil) {
-      fatal("couldn't get directory listing for " + directory.Name() + " , error = " + err.String())
-    }
-
-    for i := 0; i < len(dir_listing); i++ {
-      dir_entry := dir_listing[i].Name
-      content += "<a href = " + base_url + dir_entry + ">" + dir_entry + "</a><p>"
-    }
-
-    content += "</body></html>"
 
     // END of milestone 3 code 
 
