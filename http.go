@@ -74,7 +74,7 @@ func main() {
       fatal("could not accept tcp connection !, error = " + err.String())
     }
 
-    fmt.Printf("accepted connection from %s\n", conn.RemoteAddr())
+    fmt.Printf("\n\n\naccepted connection from %s\n", conn.RemoteAddr())
 
     // milestone 3 code
 
@@ -100,10 +100,10 @@ func main() {
 
     fmt.Printf("req_path is %s\n", req_path)
 
-    // TODO: make sure .. is in the listing
-    // TODO: avoid directory traversal above rootdir
     // TODO: check if the request is a directory or is a regular file
     //   and handle accordingly 
+
+    content := "<html><body>"
 
     if req_path == "/" {
       req_full_path = rootdir + "/"
@@ -113,6 +113,14 @@ func main() {
 
       base_url = root_url + req_path
     }
+
+    // if base_url doesn't end in a slash already, add one here
+    // to make sure the href is right
+    if base_url[len(base_url) - 1] != '/' {
+      base_url += "/"
+    }
+
+    content += "<a href = " + base_url + "..>" + "..</a><p>"
 
     fmt.Printf("base_url is %s\n", base_url)
 
@@ -141,12 +149,10 @@ func main() {
     if (err != nil) {
       fatal("couldn't get directory listing for " + directory.Name() + " , error = " + err.String())
     }
-    
-    content := "<html><body>"
 
     for i := 0; i < len(dir_listing); i++ {
       dir_entry := dir_listing[i].Name
-      content += "<a href = " + base_url + "/" + dir_entry + ">" + dir_entry + "</a><p>"
+      content += "<a href = " + base_url + dir_entry + ">" + dir_entry + "</a><p>"
     }
 
     content += "</body></html>"
